@@ -13,17 +13,17 @@ public sealed partial class TSCursor : IDisposable {
 
     private IntPtr Ptr;
     private TSTreeCursor cursor;
-    public TSLanguage lang { get; private set; }
+    public TSLanguage Language { get; private set; }
 
     public TSCursor(TSTreeCursor cursor, TSLanguage lang) {
         this.cursor = cursor;
-        this.lang = lang;
+        Language = lang;
         Ptr = new IntPtr(1);
     }
 
     public TSCursor(TSNode node, TSLanguage lang) {
-        this.cursor = ts_tree_cursor_new(node);
-        this.lang = lang;
+        cursor = ts_tree_cursor_new(node);
+        Language = lang;
         Ptr = new IntPtr(1);
     }
 
@@ -34,20 +34,53 @@ public sealed partial class TSCursor : IDisposable {
         }
     }
 
-    public void reset(TSNode node) { ts_tree_cursor_reset(ref cursor, node); }
-    public TSNode current_node() { return ts_tree_cursor_current_node(ref cursor); }
-    public string current_field() { return lang.fields[current_field_id()]; }
-    public string current_symbol() {
-        ushort symbol = ts_tree_cursor_current_node(ref cursor).symbol();
-        return (symbol != UInt16.MaxValue) ? lang.symbols[symbol] : "ERROR";
+    /// <summary>
+    ///<inheritdoc cref=ts_tree_cursor_reset/>
+    /// </summary>
+    public void Reset(TSNode node) {
+        ts_tree_cursor_reset(ref cursor, node);
     }
-    public ushort current_field_id() { return ts_tree_cursor_current_field_id(ref cursor); }
-    public bool goto_parent() { return ts_tree_cursor_goto_parent(ref cursor); }
-    public bool goto_next_sibling() { return ts_tree_cursor_goto_next_sibling(ref cursor); }
-    public bool goto_first_child() { return ts_tree_cursor_goto_first_child(ref cursor); }
-    public long goto_first_child_for_offset(uint offset) { return ts_tree_cursor_goto_first_child_for_byte(ref cursor, offset * sizeof(ushort)); }
-    public long goto_first_child_for_point(TSPoint point) { return ts_tree_cursor_goto_first_child_for_point(ref cursor, point); }
-    public TSCursor copy() { return new TSCursor(ts_tree_cursor_copy(ref cursor), lang); }
+
+    public TSNode CurrentNode() {
+        return ts_tree_cursor_current_node(ref cursor);
+    }
+
+    public string CurrentField() {
+        return Language.fields[CurrentFieldId()];
+    }
+
+    public string CurrentSymbol() {
+        ushort symbol = ts_tree_cursor_current_node(ref cursor).symbol();
+        return (symbol != ushort.MaxValue) ? Language.symbols[symbol] : "ERROR";
+    }
+
+    public ushort CurrentFieldId() {
+        return ts_tree_cursor_current_field_id(ref cursor);
+    }
+
+    public bool GotoParent() {
+        return ts_tree_cursor_goto_parent(ref cursor);
+    }
+
+    public bool GotoNextSibling() {
+        return ts_tree_cursor_goto_next_sibling(ref cursor);
+    }
+
+    public bool GotoFirstChild() {
+        return ts_tree_cursor_goto_first_child(ref cursor);
+    }
+
+    public long GotoFirstChildForOffset(uint offset) {
+        return ts_tree_cursor_goto_first_child_for_byte(ref cursor, offset * sizeof(ushort));
+    }
+
+    public long GotoFirstChildForPoint(TSPoint point) {
+        return ts_tree_cursor_goto_first_child_for_point(ref cursor, point);
+    }
+
+    public TSCursor Copy() {
+        return new TSCursor(ts_tree_cursor_copy(ref cursor), Language);
+    }
 
     #region PInvoke
     /// <summary>
