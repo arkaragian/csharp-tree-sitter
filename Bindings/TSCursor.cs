@@ -46,12 +46,12 @@ public sealed partial class TSCursor : IDisposable {
     }
 
     public string CurrentField() {
-        return Language.fields[CurrentFieldId()];
+        return Language.Fields[CurrentFieldId()]!;
     }
 
     public string CurrentSymbol() {
-        ushort symbol = ts_tree_cursor_current_node(ref cursor).symbol();
-        return (symbol != ushort.MaxValue) ? Language.symbols[symbol] : "ERROR";
+        ushort symbol = ts_tree_cursor_current_node(ref cursor).Symbol;
+        return (symbol != ushort.MaxValue) ? Language.Symbols[symbol]! : "ERROR";
     }
 
     public ushort CurrentFieldId() {
