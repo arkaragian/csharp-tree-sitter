@@ -24,6 +24,15 @@ public partial class TSParser : IDisposable {
             nint ptr = ts_parser_language(Ptr);
             return ptr != IntPtr.Zero ? new TSLanguage(ptr) : null;
         }
+        set {
+            if (value is null) {
+                return;
+            }
+            bool ok = ts_parser_set_language(Ptr, value.Ptr);
+            if (!ok) {
+                throw new InvalidOperationException("incompatible Language!");
+            }
+        }
     }
 
     public bool SetIncludedRanges(TSRange[] ranges) {
@@ -34,7 +43,7 @@ public partial class TSParser : IDisposable {
         return ts_parser_included_ranges(Ptr, out _);
     }
 
-    public TSTree? ParseString(TSTree oldTree, string input) {
+    public TSTree? ParseString(TSTree? oldTree, string input) {
         nint ptr = ts_parser_parse_string_encoding(Ptr, oldTree != null ? oldTree.Ptr : IntPtr.Zero,
                                                     input, (uint)input.Length * 2, TSInputEncoding.TSInputEncodingUTF16);
         return ptr != IntPtr.Zero ? new TSTree(ptr) : null;

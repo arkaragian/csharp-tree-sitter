@@ -19,9 +19,7 @@ public sealed partial class TSTree : IDisposable {
         nint ptr = ts_tree_copy(Ptr);
         return ptr != IntPtr.Zero ? new TSTree(ptr) : null;
     }
-    public TSNode RootNode() {
-        return ts_tree_root_node(Ptr);
-    }
+    public TSNode RootNode => ts_tree_root_node(Ptr);
 
     public TSNode RootNodeWithOffset(uint offsetBytes, TSPoint offsetPoint) {
         return ts_tree_root_node_with_offset(Ptr, offsetBytes, offsetPoint);

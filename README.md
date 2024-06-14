@@ -1,12 +1,22 @@
 # csharp-tree-sitter
-==================
 
 ## Introduction
-This module provides C# bindings to the [tree-sitter](https://github.com/tree-sitter/tree-sitter) parsing library, which can enable c# developers be able to invoke the tree-sitter libraries through P/Invoke from their c# code.
+This module provides C# bindings to the
+[tree-sitter](https://github.com/tree-sitter/tree-sitter) parsing library,
+which can enable c# developers be able to invoke the tree-sitter libraries
+through P/Invoke from their c# code.
+
+## Using the Bindings
+
+In order to use the we need three basic components:
+
+1. A build of the C# bindings to do this call `dotnet build` in the root of
+   this repository.
 
 ## Cloning
 
-This repo includes the needed tree-sitter repos as submodules.  Remember to use the `--recursive` option with git clone.
+This repo includes the needed tree-sitter repos as submodules.  Remember to use
+the `--recursive` option with git clone.
 
 ```cmd
 git clone https://github.com/tree-sitter/csharp-tree-sitter.git --recursive

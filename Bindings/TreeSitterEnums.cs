@@ -50,12 +50,12 @@ public enum TSQueryError {
 
 [StructLayout(LayoutKind.Sequential)]
 public struct TSPoint {
-    public uint row;
-    public uint column;
+    public uint Row { get; set; }
+    public uint Column { get; set; }
 
     public TSPoint(uint row, uint column) {
-        this.row = row;
-        this.column = column;
+        Row = row;
+        Column = column;
     }
 }
 

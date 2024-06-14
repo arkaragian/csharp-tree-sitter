@@ -37,7 +37,7 @@ public partial struct TSNode {
     public readonly TSPoint StartPoint {
         get {
             TSPoint pt = ts_node_start_point(this);
-            return new TSPoint(pt.row, pt.column / sizeof(ushort));
+            return new TSPoint(pt.Row, pt.Column / sizeof(ushort));
         }
     }
 
@@ -46,7 +46,7 @@ public partial struct TSNode {
     public readonly TSPoint EndPoint {
         get {
             TSPoint pt = ts_node_end_point(this);
-            return new TSPoint(pt.row, pt.column / sizeof(ushort));
+            return new TSPoint(pt.Row, pt.Column / sizeof(ushort));
         }
     }
 

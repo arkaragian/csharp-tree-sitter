@@ -15,6 +15,16 @@ public sealed partial class TSCursor : IDisposable {
     private TSTreeCursor cursor;
     public TSLanguage Language { get; private set; }
 
+    public TSNode CurrentNode => ts_tree_cursor_current_node(ref cursor);
+    public ushort CurrentFieldId => ts_tree_cursor_current_field_id(ref cursor);
+    public string CurrentField => Language.Fields[CurrentFieldId]!;
+    public string CurrentSymbolString {
+        get {
+            ushort symbol = ts_tree_cursor_current_node(ref cursor).Symbol;
+            return (symbol is not ushort.MaxValue) ? Language.Symbols[symbol]! : "ERROR";
+        }
+    }
+
     public TSCursor(TSTreeCursor cursor, TSLanguage lang) {
         this.cursor = cursor;
         Language = lang;
@@ -41,22 +51,7 @@ public sealed partial class TSCursor : IDisposable {
         ts_tree_cursor_reset(ref cursor, node);
     }
 
-    public TSNode CurrentNode() {
-        return ts_tree_cursor_current_node(ref cursor);
-    }
 
-    public string CurrentField() {
-        return Language.Fields[CurrentFieldId()]!;
-    }
-
-    public string CurrentSymbol() {
-        ushort symbol = ts_tree_cursor_current_node(ref cursor).Symbol;
-        return (symbol != ushort.MaxValue) ? Language.Symbols[symbol]! : "ERROR";
-    }
-
-    public ushort CurrentFieldId() {
-        return ts_tree_cursor_current_field_id(ref cursor);
-    }
 
     public bool GotoParent() {
         return ts_tree_cursor_goto_parent(ref cursor);
