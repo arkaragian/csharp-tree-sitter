@@ -9,32 +9,60 @@ namespace TreeSitter.CSharp;
 /// Tree-sitter GitHub organization.
 /// </summary>
 public sealed partial class TSLanguage : IDisposable {
-    internal IntPtr Ptr { get; private set; }
+    /// <summary>
+    /// A pointer the TreeSitter language instance.
+    /// </summary>
+    internal IntPtr LanguagePointer { get; private set; }
 
-    public string?[] Symbols { get; set; }
-    public string?[] Fields { get; set; }
+    /// <summary>
+    /// A list of strings that represent the symbols of the language.
+    /// That items such as keywords, operators etc.
+    /// </summary>
+    public List<string> Symbols { get; set; }
+
+    /// <summary>
+    /// A list of strings that represent the Fields of the language.
+    /// </summary>
+    public List<string> Fields { get; set; }
+
+    /// <summary>
+    /// A dictionaty that maps strings to numeric ids
+    /// </summary>
     public Dictionary<string, ushort> FieldIds { get; set; }
 
-    public TSLanguage(IntPtr ptr) {
-        Ptr = ptr;
+    public TSLanguage(IntPtr languagePtr) {
+        if (languagePtr == IntPtr.Zero) {
+            throw new InvalidOperationException("Cannot initialize with a Zero Pointer");
+        }
+        LanguagePointer = languagePtr;
 
-        Symbols = new string?[SymbolCount() + 1];
-        for (ushort i = 0; i < Symbols.Length; i++) {
-            Symbols[i] = Marshal.PtrToStringAnsi(ts_language_symbol_name(Ptr, i));
+        uint nuSymbols = ts_language_symbol_count(LanguagePointer) + 1;
+        //Symbols = new List<string>(new string[nuSymbols]);
+        Symbols = new List<string>();
+        for (ushort i = 0; i < nuSymbols; i++) {
+            string? s = Marshal.PtrToStringAnsi(ts_language_symbol_name(LanguagePointer, i));
+            if (s is not null) {
+                Symbols.Add(s);
+            }
         }
 
-        Fields = new string[FieldCount() + 1];
-        FieldIds = new Dictionary<string, ushort>((int)FieldCount() + 1);
+        uint nuFields = FieldCount() + 1;
 
-        for (ushort i = 0; i < Fields.Length; i++) {
-            Fields[i] = Marshal.PtrToStringAnsi(ts_language_field_name_for_id(Ptr, i));
-            if (Fields[i] is not null) {
-                FieldIds.Add(Fields[i]!, i); // TODO: check for dupes, and throw if found
+        // Fields = new List<string>(new string[nuFields]);
+        // FieldIds = new Dictionary<string, ushort>((int)nuFields);
+        Fields = new List<string>();
+        FieldIds = new Dictionary<string, ushort>();
+
+        for (ushort i = 0; i < nuFields; i++) {
+            string? s = Marshal.PtrToStringAnsi(ts_language_field_name_for_id(LanguagePointer, i));
+            if (s is not null and not "") {
+                Fields.Add(s);
+                FieldIds.Add(s, i);
             }
         }
 
 #if false
-            for (int i = 0; i < symbols.Length; i++) {
+            for (int i = 1; i < symbols.Length; i++) {
                 for (int j = 0; j < i; j++) {
                     Debug.Assert(symbols[i] != symbols[j]);
                 }
@@ -45,47 +73,74 @@ public sealed partial class TSLanguage : IDisposable {
                     Debug.Assert(fields[i] != fields[j]);
                 }
             }
+
+        Console.WriteLine("Symbols");
+        foreach (string s in Symbols) {
+            Console.Write('"');
+            Console.Write(s);
+            Console.Write('"');
+            Console.Write("\n");
+        }
+
+        Console.WriteLine("\n\nFields");
+        foreach (string s in Fields) {
+            Console.Write('"');
+            Console.Write(s);
+            Console.Write('"');
+            Console.Write("\n");
+        }
+        foreach (KeyValuePair<string, ushort> s in FieldIds) {
+            Console.Write('"');
+            Console.Write(s.Key);
+            Console.Write('"');
+            Console.Write(" --> ");
+            Console.Write('"');
+            Console.Write(s.Value);
+            Console.Write('"');
+            Console.Write("\n");
+        }
 #endif
     }
 
     public void Dispose() {
-        if (Ptr != IntPtr.Zero) {
-            //ts_query_cursor_delete(Ptr);
-            Ptr = IntPtr.Zero;
+        if (LanguagePointer != IntPtr.Zero) {
+            //ts_query_cursor_delete(LanguagePointer);
+            LanguagePointer = IntPtr.Zero;
         }
     }
 
     public TSQuery? NewQuery(string source, out uint errorOffset, out TSQueryError errorType) {
-        nint ptr = ts_query_new(Ptr, source, (uint)source.Length, out errorOffset, out errorType);
+        nint ptr = ts_query_new(LanguagePointer, source, (uint)source.Length, out errorOffset, out errorType);
         return ptr != IntPtr.Zero ? new TSQuery(ptr) : null;
     }
 
 
-    public uint SymbolCount() {
-        return ts_language_symbol_count(Ptr);
-    }
-
     public string SymbolName(ushort symbol) {
-        return (symbol != ushort.MaxValue) ? Symbols[symbol]! : "ERROR";
+        //TODO: Overload the index operator [] for this
+        if (symbol < Symbols.Count) {
+            return Symbols[symbol];
+        } else {
+            return "ERROR";
+        }
     }
 
     public ushort SymbolForName(string str, bool isNamed) {
-        return ts_language_symbol_for_name(Ptr, str, (uint)str.Length, isNamed);
+        return ts_language_symbol_for_name(LanguagePointer, str, (uint)str.Length, isNamed);
     }
 
     public uint FieldCount() {
-        return ts_language_field_count(Ptr);
+        return ts_language_field_count(LanguagePointer);
     }
 
     public string FieldNameForId(ushort fieldId) {
         return Fields[fieldId]!;
     }
     public ushort FieldIdForName(string str) {
-        return ts_language_field_id_for_name(Ptr, str, (uint)str.Length);
+        return ts_language_field_id_for_name(LanguagePointer, str, (uint)str.Length);
     }
 
     public TSSymbolType SymbolType(ushort symbol) {
-        return ts_language_symbol_type(Ptr, symbol);
+        return ts_language_symbol_type(LanguagePointer, symbol);
     }
 
     #region PInvoke

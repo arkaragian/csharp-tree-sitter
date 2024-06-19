@@ -33,6 +33,7 @@ public partial struct TSNode {
     public readonly ushort Symbol => ts_node_symbol(this);
 
     public readonly uint StartOffset => ts_node_start_byte(this) / sizeof(ushort);
+    public readonly uint EndOffset => ts_node_end_byte(this) / sizeof(ushort);
 
     public readonly TSPoint StartPoint {
         get {
@@ -41,7 +42,6 @@ public partial struct TSNode {
         }
     }
 
-    public readonly uint EndOffset => ts_node_end_byte(this) / sizeof(ushort);
 
     public readonly TSPoint EndPoint {
         get {
@@ -49,16 +49,32 @@ public partial struct TSNode {
             return new TSPoint(pt.Row, pt.Column / sizeof(ushort));
         }
     }
-
-    public string? To_string() {
-        nint dat = ts_node_string(this);
-        string? str = Marshal.PtrToStringAnsi(dat);
-        ts_node_string_free(dat);
-        return str;
+    ///
+    /// <summary>
+    /// Returns the syntax tree of the node. That is the lisp like strucure
+    /// </summary>
+    public readonly string? InnerSyntaxTree {
+        get {
+            nint dat = ts_node_string(this);
+            string? str = Marshal.PtrToStringAnsi(dat);
+            ts_node_string_free(dat);
+            return str;
+        }
     }
 
-    public readonly bool IsNull => ts_node_is_null(this);
 
+    //public readonly bool IsNull => ts_node_is_null(this);
+
+    /// <summary>
+    /// Tree-sitter produces concrete syntax trees - trees that contain nodes
+    /// for every individual token in the source code, including things like
+    /// commas and parentheses. This is important for use-cases that deal with
+    /// individual tokens, like syntax highlighting. But some types of code
+    /// analysis are easier to perform using an abstract syntax tree - a tree
+    /// in which the less important details have been removed. Tree-sitter’s
+    /// trees support these use cases by making a distinction between named
+    /// and anonymous nodes.
+    /// </summary>
     public readonly bool IsNamed => ts_node_is_named(this);
 
     public readonly bool IsMissing => ts_node_is_missing(this);
@@ -71,6 +87,9 @@ public partial struct TSNode {
 
     public readonly TSNode Parent => ts_node_parent(this);
 
+    /// <summary>
+    /// Returns the child node that resides in the index specified by <paramref name="index"/>
+    /// </summary>
     public readonly TSNode Child(uint index) {
         //TODO: Check Bounds
         return ts_node_child(this, index);
@@ -96,7 +115,15 @@ public partial struct TSNode {
         return ts_node_child_by_field_id(this, fieldId);
     }
 
-    public readonly TSNode NextSibling => ts_node_next_sibling(this);
+    public readonly TSNode? NextSibling {
+        get {
+            TSNode result = ts_node_next_sibling(this);
+            if (ts_node_is_null(result)) {
+                return null;
+            }
+            return result;
+        }
+    }//ts_node_next_sibling(this);
 
     public readonly TSNode PrevSibling => ts_node_prev_sibling(this);
 
@@ -132,10 +159,19 @@ public partial struct TSNode {
         return ts_node_eq(this, other);
     }
 
-    public readonly string Text(string data) {
+    /// <summary>
+    /// Returns the source code that this node encompases. The actual source
+    /// data is drawn from the <paramref name="rawFileContents"/> input.
+    /// </summary>
+    /// <remarks>
+    ///  The <paramref name="rawFileContents"/> must contain the complete source
+    ///  of the file.
+    /// </remarks>
+    public readonly string SourceCode(string rawFileContents) {
         uint beg = StartOffset;
         uint end = EndOffset;
-        return data.Substring((int)beg, (int)(end - beg));
+        //TODO: Maybe throw an exception when something bad happens
+        return rawFileContents.Substring((int)beg, (int)(end - beg));
     }
 
     #region PInvoke

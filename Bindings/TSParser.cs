@@ -1,64 +1,98 @@
 ﻿using System.Runtime.InteropServices;
 
 namespace TreeSitter.CSharp;
+
+/// <summary>
+/// A stateful object that can be assigned a TSLanguage and used to produce a
+/// TSTree based on some source code.
+/// </summary>
 public partial class TSParser : IDisposable {
-    private IntPtr Ptr { get; set; }
+    private IntPtr ParserPointer { get; set; }
 
     public TSParser() {
-        Ptr = ts_parser_new();
+        ParserPointer = ts_parser_new();
     }
 
     public void Dispose() {
-        if (Ptr != IntPtr.Zero) {
-            ts_parser_delete(Ptr);
-            Ptr = IntPtr.Zero;
+        if (ParserPointer != IntPtr.Zero) {
+            ts_parser_delete(ParserPointer);
+            ParserPointer = IntPtr.Zero;
         }
+        GC.SuppressFinalize(this);
     }
 
-    public bool SetLanguage(TSLanguage language) {
-        return ts_parser_set_language(Ptr, language.Ptr);
-    }
-
+    /// <summary>
+    /// The language defition of the parser
+    /// </summary>
     public TSLanguage? Language {
         get {
-            nint ptr = ts_parser_language(Ptr);
+            nint ptr = ts_parser_language(ParserPointer);
             return ptr != IntPtr.Zero ? new TSLanguage(ptr) : null;
         }
         set {
             if (value is null) {
                 return;
             }
-            bool ok = ts_parser_set_language(Ptr, value.Ptr);
+            bool ok = ts_parser_set_language(ParserPointer, value.LanguagePointer);
             if (!ok) {
                 throw new InvalidOperationException("incompatible Language!");
             }
         }
     }
 
-    public bool SetIncludedRanges(TSRange[] ranges) {
-        return ts_parser_set_included_ranges(Ptr, ranges, (uint)ranges.Length);
+    /// <summary>
+    /// By default, the parser will always include entire documents. This property
+    /// allows you to parse only a *portion* of a document but still return a syntax
+    /// tree whose ranges match up with the document as a whole. You can also pass
+    /// multiple disjoint ranges.
+    ///
+    /// If `count` is zero, then the entire document will be parsed. Otherwise,
+    /// the given ranges must be ordered from earliest to latest in the document,
+    /// and they must not overlap. That is, the following must hold for all:
+    ///
+    /// `i < count - 1`: `ranges[i].end_byte <= ranges[i + 1].start_byte`
+    ///
+    /// If this requirement is not satisfied, the operation will fail, the ranges
+    /// will not be assigned, and this function will return `false`. On success,
+    /// this function returns `true`
+    /// </summary>
+    /// <remarks>
+    /// The parser does *not* take ownership of these ranges; it copies
+    /// the data, so it doesn't matter how these ranges are allocated.
+    /// </remarks>
+    public TSRange[] IncludedRanges {
+        get => ts_parser_included_ranges(ParserPointer, out _);
+        set {
+            bool ok = ts_parser_set_included_ranges(ParserPointer, value, (uint)value.Length);
+            if (!ok) {
+                throw new InvalidOperationException("Could not set ranges!");
+            }
+        }
     }
 
-    public TSRange[] IncludedRanges() {
-        return ts_parser_included_ranges(Ptr, out _);
-    }
-
+    /// <summary>
+    /// Generates a tree from the string input defined by <paramref name="input"/>
+    /// </summary>
     public TSTree? ParseString(TSTree? oldTree, string input) {
-        nint ptr = ts_parser_parse_string_encoding(Ptr, oldTree != null ? oldTree.Ptr : IntPtr.Zero,
-                                                    input, (uint)input.Length * 2, TSInputEncoding.TSInputEncodingUTF16);
-        return ptr != IntPtr.Zero ? new TSTree(ptr) : null;
+        IntPtr old_ptr = oldTree?.TreePointer ?? IntPtr.Zero;
+        nint ptr = ts_parser_parse_string_encoding(ParserPointer, old_ptr, input, (uint)input.Length * 2, TSInputEncoding.TSInputEncodingUTF16);
+        if (ptr != IntPtr.Zero) {
+            return new TSTree(ptr);
+        } else {
+            return null;
+        }
     }
 
     public void Reset() {
-        ts_parser_reset(Ptr);
+        ts_parser_reset(ParserPointer);
     }
 
     public void SetTimeoutMicros(ulong timeout) {
-        ts_parser_set_timeout_micros(Ptr, timeout);
+        ts_parser_set_timeout_micros(ParserPointer, timeout);
     }
 
     public ulong TimeoutMicros() {
-        return ts_parser_timeout_micros(Ptr);
+        return ts_parser_timeout_micros(ParserPointer);
     }
 
     public void SetLogger(TSLogger? logger) {
@@ -70,7 +104,7 @@ public partial class TSParser : IDisposable {
         TSLoggerData data = new() {
             Log = new TSLogCallback(code.LogCallback)
         };
-        ts_parser_set_logger(Ptr, data);
+        ts_parser_set_logger(ParserPointer, data);
     }
 
     [StructLayout(LayoutKind.Sequential)]
@@ -123,15 +157,17 @@ public partial class TSParser : IDisposable {
     private static partial void ts_parser_delete(IntPtr parser);
 
     /**
-    * Set the language that the parser should use for parsing.
-    *
-    * Returns a boolean indicating whether or not the language was successfully
-    * assigned. True means assignment succeeded. False means there was a version
-    * mismatch: the language was generated with an incompatible version of the
-    * Tree-sitter CLI. Check the language's version using `ts_language_version`
-    * and compare it to this library's `TREE_SITTER_LANGUAGE_VERSION` and
-    * `TREE_SITTER_MIN_COMPATIBLE_LANGUAGE_VERSION` constants.
     */
+    /// <summary>
+    /// Set the language that the parser should use for parsing.
+    ///
+    /// Returns a boolean indicating whether or not the language was successfully
+    /// assigned. True means assignment succeeded. False means there was a version
+    /// mismatch: the language was generated with an incompatible version of the
+    /// Tree-sitter CLI. Check the language's version using `ts_language_version`
+    /// and compare it to this library's `TREE_SITTER_LANGUAGE_VERSION` and
+    /// `TREE_SITTER_MIN_COMPATIBLE_LANGUAGE_VERSION` constants.
+    /// </summary>
     [LibraryImport("tree-sitter.dll")]
     [UnmanagedCallConv(CallConvs = new Type[] { typeof(System.Runtime.CompilerServices.CallConvCdecl) })]
     [return: MarshalAs(UnmanagedType.I1)]
@@ -144,28 +180,28 @@ public partial class TSParser : IDisposable {
     [UnmanagedCallConv(CallConvs = new Type[] { typeof(System.Runtime.CompilerServices.CallConvCdecl) })]
     private static partial IntPtr ts_parser_language(IntPtr parser);
 
-    /**
-    * Set the ranges of text that the parser should include when parsing.
-    *
-    * By default, the parser will always include entire documents. This function
-    * allows you to parse only a *portion* of a document but still return a syntax
-    * tree whose ranges match up with the document as a whole. You can also pass
-    * multiple disjoint ranges.
-    *
-    * The second and third parameters specify the location and length of an array
-    * of ranges. The parser does *not* take ownership of these ranges; it copies
-    * the data, so it doesn't matter how these ranges are allocated.
-    *
-    * If `length` is zero, then the entire document will be parsed. Otherwise,
-    * the given ranges must be ordered from earliest to latest in the document,
-    * and they must not overlap. That is, the following must hold for all
-    * `i` < `length - 1`: ranges[i].end_byte <= ranges[i + 1].start_byte
-    *
-    * If this requirement is not satisfied, the operation will fail, the ranges
-    * will not be assigned, and this function will return `false`. On success,
-    * this function returns `true`
-    */
 
+    /// <summary>
+    /// Set the ranges of text that the parser should include when parsing.
+    ///
+    /// By default, the parser will always include entire documents. This function
+    /// allows you to parse only a *portion* of a document but still return a syntax
+    /// tree whose ranges match up with the document as a whole. You can also pass
+    /// multiple disjoint ranges.
+    ///
+    /// The second and third parameters specify the location and length of an array
+    /// of ranges. The parser does *not* take ownership of these ranges; it copies
+    /// the data, so it doesn't matter how these ranges are allocated.
+    ///
+    /// If `length` is zero, then the entire document will be parsed. Otherwise,
+    /// the given ranges must be ordered from earliest to latest in the document,
+    /// and they must not overlap. That is, the following must hold for all
+    /// `i` < `length - 1`: ranges[i].end_byte <= ranges[i + 1].start_byte
+    ///
+    /// If this requirement is not satisfied, the operation will fail, the ranges
+    /// will not be assigned, and this function will return `false`. On success,
+    /// this function returns `true`
+    /// </summary>
     [DllImport("tree-sitter.dll", CallingConvention = CallingConvention.Cdecl)]
     //[return: MarshalAs(UnmanagedType.I1)]
     private static extern bool ts_parser_set_included_ranges(IntPtr parser, [In, MarshalAs(UnmanagedType.LPArray, SizeParamIndex = 2)] TSRange[] ranges, uint length);

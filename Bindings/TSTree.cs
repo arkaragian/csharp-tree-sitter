@@ -2,38 +2,49 @@ using System.Runtime.InteropServices;
 
 namespace TreeSitter.CSharp;
 public sealed partial class TSTree : IDisposable {
-    internal IntPtr Ptr { get; private set; }
+    /// <summary>
+    /// The C pointer where the TreeSitter Tree Resides
+    /// </summary>
+    internal IntPtr TreePointer { get; private set; }
 
-    public TSTree(IntPtr ptr) {
-        Ptr = ptr;
+    public TSTree(IntPtr reference) {
+        if (reference == IntPtr.Zero) {
+            throw new InvalidOperationException("Cannot initlize tree with zero pointer!");
+        }
+        TreePointer = reference;
     }
 
     public void Dispose() {
-        if (Ptr != IntPtr.Zero) {
-            ts_tree_delete(Ptr);
-            Ptr = IntPtr.Zero;
+        if (TreePointer != IntPtr.Zero) {
+            ts_tree_delete(TreePointer);
+            TreePointer = IntPtr.Zero;
         }
     }
 
     public TSTree? Copy() {
-        nint ptr = ts_tree_copy(Ptr);
-        return ptr != IntPtr.Zero ? new TSTree(ptr) : null;
+        nint ptr = ts_tree_copy(TreePointer);
+        if (ptr != IntPtr.Zero) {
+            return new TSTree(ptr);
+        } else {
+            return null;
+        }
     }
-    public TSNode RootNode => ts_tree_root_node(Ptr);
+
+    public TSNode RootNode => ts_tree_root_node(TreePointer);
 
     public TSNode RootNodeWithOffset(uint offsetBytes, TSPoint offsetPoint) {
-        return ts_tree_root_node_with_offset(Ptr, offsetBytes, offsetPoint);
+        return ts_tree_root_node_with_offset(TreePointer, offsetBytes, offsetPoint);
     }
 
     public TSLanguage? Language {
         get {
-            nint ptr = ts_tree_language(Ptr);
+            nint ptr = ts_tree_language(TreePointer);
             return ptr != IntPtr.Zero ? new TSLanguage(ptr) : null;
         }
     }
 
     public void Edit(TSInputEdit edit) {
-        ts_tree_edit(Ptr, ref edit);
+        ts_tree_edit(TreePointer, ref edit);
     }
 
     #region PInvoke
