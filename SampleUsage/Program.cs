@@ -8,9 +8,10 @@ internal class Program {
     [DllImport("tree-sitter-cpp.dll", CallingConvention = CallingConvention.Cdecl)]
     private static extern nint tree_sitter_cpp();
 
+    [DllImport("tree-sitter-latex.dll", CallingConvention = CallingConvention.Cdecl)]
+    private static extern nint tree_sitter_latex();
+
     private static void Main(string[] args) {
-        List<string> files;
-        int a = 0;
 
         // Check if the args have at least two elements and the first one is "-files"
         if (args.Length < 2 || args[0] != "-files") {
@@ -18,34 +19,47 @@ internal class Program {
             return;
         }
 
-        if ((files = ArgsToPaths(ref a, args)) != null) {
+        int a = 0;
+        List<string>? files = ArgsToPaths(ref a, args);
+
+        if (files is not null) {
             _ = PrintTree(files);
         }
     }
 
-    public static bool ParseTree(string path, string filetext, TSParser parser) {
-        parser.Language = new TSLanguage(tree_sitter_cpp());
+    public static bool ParseTree(string fileContents, TSLanguage lang) {
+        using TSParser parser = new() {
+            Language = lang
+        };
 
-        using TSTree? tree = parser.ParseString(oldTree: null, filetext);
+
+        using TSTree? tree = parser.ParseString(oldTree: null, fileContents);
         if (tree is null) {
+            Console.WriteLine("First Parsing Failed");
             return false;
         }
 
-        using TSCursor cursor = new(tree.RootNode, parser.Language);
-        SampleCPPTreeSitter.PostOrderTraverse(path, filetext, cursor);
+        SampleCPPTreeSitter.PostOrderTraverseTree(tree, lang, fileContents);
         return true;
-    }
-
-    public static bool TraverseTree(string filename, string filetext) {
-        using TSParser parser = new();
-        return ParseTree(filename, filetext, parser);
     }
 
     public static bool PrintTree(List<string> paths) {
         bool good = true;
         foreach (string path in paths) {
             string filetext = File.ReadAllText(path);
-            if (!TraverseTree(path, filetext)) {
+            TSLanguage? lang = null;
+            if (path[^3..] is "cpp") {
+                lang = new(tree_sitter_cpp());
+            }
+            if (path[^3..] is "tex") {
+                lang = new(tree_sitter_latex());
+            }
+
+            if (lang is null) {
+                return false;
+            }
+
+            if (!ParseTree(filetext, lang)) {
                 good = false;
             }
         }

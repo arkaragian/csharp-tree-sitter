@@ -8,10 +8,12 @@ through P/Invoke from their c# code.
 
 ## Using the Bindings
 
-In order to use the we need three basic components:
+In order to use the we need two two components:
 
 1. A build of the C# bindings to do this call `dotnet build` in the root of
    this repository.
+2. A build of a tree sitter.
+3. A dll of a parser implementation
 
 ## Cloning
 
